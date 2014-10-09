@@ -1,5 +1,5 @@
 
-package org.openqa.selenium.remote.server;
+package org.openqa.grid.selenium.utils;
 
 import java.io.IOException;
 

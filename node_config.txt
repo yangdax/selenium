@@ -1,3 +1,3 @@
-{ "capabilities": [ { "browserName": "firefox", "maxInstances": 5, "seleniumProtocol": "WebDriver" } ], 
-"configuration": { "proxy": "org.openqa.selenium.remote.server.CustomRemoteProxy", "maxSession": 5, "port": 5555, "host": ip, 
+{ "capabilities": [ { "browserName": "firefox", "maxInstances": 1, "seleniumProtocol": "WebDriver" } ],
+"configuration": { "proxy": "org.openqa.grid.selenium.proxy.CustomRemoteProxy", "maxSession": 1, "port": 5555, "host": ip,
 "register": true, "registerCycle": 5000, "hubPort": 4444 } }

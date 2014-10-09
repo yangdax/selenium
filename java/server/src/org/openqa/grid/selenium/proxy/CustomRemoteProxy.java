@@ -1,5 +1,5 @@
 
-package org.openqa.selenium.remote.server;
+package org.openqa.grid.selenium.proxy;
 
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -8,13 +8,13 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.openqa.grid.common.RegistrationRequest;
 import org.openqa.grid.internal.Registry;
 import org.openqa.grid.internal.TestSession;
-import org.openqa.grid.selenium.proxy.DefaultRemoteProxy;
+import org.openqa.grid.selenium.utils.NodeShutDownServlet;
+import org.openqa.selenium.support.ui.SystemClock;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Properties;
-
-import org.openqa.selenium.remote.server.NodeShutDownServlet;
 
 /**
  * This is a custom Proxy. This proxy when injected into the Grid, starts counting unique test sessions.
@@ -31,6 +31,7 @@ import org.openqa.selenium.remote.server.NodeShutDownServlet;
 
 public class CustomRemoteProxy extends DefaultRemoteProxy {
 
+  private static final int MAX_SESSIONS_BEFORE_SHUTDOWN = 3;
 
   private volatile int counter;
 
@@ -39,10 +40,15 @@ public class CustomRemoteProxy extends DefaultRemoteProxy {
   public CustomRemoteProxy(RegistrationRequest request, Registry registry) throws IOException {
     super(request, registry);
     System.out.println("New proxy instantiated for the machine :" + getRemoteHost().getHost());
-    InputStream stream = CustomRemoteProxy.class.getResourceAsStream("/mygrid.properties");
+
+    /*
+    InputStream stream = CustomRemoteProxy.class.getResourceAsStream("mygrid.properties");
     Properties props = new Properties();
     props.load(stream);
     counter = Integer.parseInt((String) props.get("UniqueSessionCount"));
+    */
+
+    counter = MAX_SESSIONS_BEFORE_SHUTDOWN;
   }
 
   @Override
@@ -86,15 +92,40 @@ public class CustomRemoteProxy extends DefaultRemoteProxy {
   }
 
   @Override
-  public void beforeSession(TestSession session) {
+  public void afterSession(TestSession session) {
     String ip = getRemoteHost().getHost();
     if (decrementCounter()) {
-      super.beforeSession(session);
+      super.afterSession(session);
     } else {
       System.out.println("Cannot forward any more tests to this proxy " + ip);
       return;
     }
+
   }
+
+  /* overwrites the session allocation to discard the proxy that are down.
+  */
+
+  @Override
+  public TestSession getNewSession(Map<String, Object> requestedCapability)
+  {
+    if(shouldNodeBeReleased())
+    {
+      return null;
+    }
+    TestSession session = super.getNewSession(requestedCapability);
+    if(session != null)
+    {
+      boolean moreTestsOK = decrementCounter();
+
+      if(!moreTestsOK)
+      {
+        System.out.println("Cannot forward any more sessions to this node until it has been recycled.");
+      }
+    }
+    return session;
+  }
+
 
   /**
    * This class is used to poll continuously to decide if the current node can be cleaned up. If it can be cleaned up,
